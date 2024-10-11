@@ -1053,7 +1053,6 @@ class StorageGroup(object):
     def add_existing_volumes_to_sg(self, vol_list, sg_name):
         """Add existing volumes to existing storage group"""
 
-        storage_group = self.provisioning.get_storage_group(sg_name)
         existing_volumes_in_sg = self.provisioning.get_volumes_from_storage_group(
             sg_name)
         vol_ids = []
