@@ -59,6 +59,13 @@ options:
       - It is required in create and convert operations.
     required: False
     type: str
+  metro_r2_dr_rdfg:
+    description:
+      - DR SRDF group that should be used to pair Metro R2 volumes with DR volumes.
+      - Leave blank to automatically pick or create an SRDF Group.
+    required: False
+    type: int
+    default: None
   replication_mode:
     description:
     - Replication mode whose value will indicate how the data will be
@@ -579,22 +586,23 @@ class MetroDR(object):
             self.show_error_exit(
                 "Failed to get SRDF details error: %s" % str(e))
 
-    def get_rdf_group(self, gr):
+    def get_rdf_group(self, gr, array_id=None):
         """ Provides details of given RDF group
 
-        :param gr: RDF group number
-        :type gr: int
-        :return: SRDF group details
-        :rtype: dict
+        :param gr: RDF group number -- int
+        :param array_id: array serial number, optional -- str
+        :return: SRDF group details -- dict
         """
         try:
             LOG.info("Getting RDF group details for: %s", gr)
-            rdf_group_details = self.replication.get_rdf_group(gr)
+            rdf_group_details = self.replication.get_rdf_group(gr, array_id=array_id)
             LOG.info("Successfully got RDF group details")
             return rdf_group_details
         except Exception as e:
             self.show_error_exit(
-                "Failed to get RDF group details error: %s" % str(e))
+                "Failed to get %s RDF group details error: %s"
+                % (gr, str(e))
+            )
 
     def pre_checks_for_convert(self):
         """ Performs prechecks required for convert SG to metro DR
@@ -608,6 +616,7 @@ class MetroDR(object):
         # array (Concurrent)
         # 3) The Metro Session must be configured using a witness
         # 4) User role must be at least StorageAdmin or RemoteRep
+        # 5) When provided, Metro R2 DR srdf group should exist and should not contains any volume
 
         # precheck: 1 - SG should protected with srdf
         srdf_gr_list = self.get_storage_group_srdf_group_list()
@@ -661,6 +670,29 @@ class MetroDR(object):
                                  "both should be True."
                                  % (is_srdf_adp_or_asyn, is_srdf_active))
 
+        # precheck: 5
+        if self.module.params["metro_r2_dr_rdfg"]:
+            metro_r2_dr_rdfg_details = self.get_rdf_group(
+                self.module.params["metro_r2_dr_rdfg"],
+                array_id=self.module.params["metro_r2_array_id"]
+            )
+            LOG.info(
+                "The %s Metro R2 DR RDF Group exist on %s array."
+                % (self.module.params["metro_r2_dr_rdfg"], self.module.params["metro_r2_array_id"])
+            )
+
+            if metro_r2_dr_rdfg_details['numDevices'] == 0:
+                LOG.info(
+                    "The %s Metro R2 DR RDF Group on %s array is empty"
+                    % (self.module.params["metro_r2_dr_rdfg"], self.module.params["metro_r2_array_id"])
+                )
+            else:
+                self.show_error_exit(
+                    "Pre-check for convert not satisfied. "
+                    "The %s Metro R2 DR RDF Group on %s array should be empty"
+                    % (self.module.params["metro_r2_dr_rdfg"], self.module.params["metro_r2_array_id"])
+                )
+
         LOG.info("Successfully prechecked for converting SG to metro DR"
                  " environment")
 
@@ -679,6 +711,7 @@ class MetroDR(object):
             param = {
                 "storage_group_name": self.module.params['sg_name'],
                 "environment_name": self.module.params['env_name'],
+                "metro_r2_dr_rdfg": self.module.params['metro_r2_dr_rdfg'],
                 "_async": not self.module.params['wait_for_completion']
             }
             LOG.info("Converting SG: %s to metro DR environment: %s with "
@@ -976,6 +1009,7 @@ def get_metrodr_parameters():
         sg_name=dict(required=False, type='str'),
         metro_r1_array_id=dict(required=True, type='str'),
         metro_r2_array_id=dict(required=False, type='str'),
+        metro_r2_dr_rdfg=dict(type='int', required=False, default=None),
         dr_array_id=dict(required=False, type='str'),
         replication_mode=dict(required=False, type='str',
                               choices=REPLICATION_MODES),
