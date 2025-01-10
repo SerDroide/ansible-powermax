@@ -47,7 +47,7 @@ def pyu4v_version_check():
                                           " the required package"
             return unsupported_version_message
         min_ver = '9.1.2.0'
-        max_ver = '10.1.0.2'
+        max_ver = '10.2.0.2'
         curr_version = PyU4V.__version__
         unsupported_version_message = "PyU4V {0} is not supported by this " \
                                       "module.Minimum supported version " \
@@ -81,6 +81,10 @@ def universion_check(universion):
         elif curr_version.startswith("10.0") and universion == 100:
             is_valid_universion = True
         elif curr_version.startswith("10.1") and universion == 101:
+            is_valid_universion = True
+        # This is used a temporary workaround while waiting the full support
+        # for Unisphere 10.2
+        elif curr_version.startswith("10.2") and universion == 101:
             is_valid_universion = True
         else:
             user_message = "Unsupported unisphere version for current PyU4V"
