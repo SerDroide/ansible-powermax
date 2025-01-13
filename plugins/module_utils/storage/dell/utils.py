@@ -47,7 +47,7 @@ def pyu4v_version_check():
                                           " the required package"
             return unsupported_version_message
         min_ver = '9.1.2.0'
-        max_ver = '10.1.0.2'
+        max_ver = '10.1.0.3a1'
         curr_version = PyU4V.__version__
         unsupported_version_message = "PyU4V {0} is not supported by this " \
                                       "module.Minimum supported version " \
