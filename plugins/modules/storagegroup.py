@@ -103,6 +103,11 @@ options:
      - Describes the state of snapshot policy for an SG.
     type: str
     choices: [present-in-group, absent-in-group]
+  terminate_snapshots:
+    description:
+     - Terminate snapshots before removing the volume from the storage group
+    type: bool
+    default: false
   host_io_limit:
     description:
     - Host I/O limit of the storage group.
@@ -222,6 +227,23 @@ EXAMPLES = r'''
       - vol_id: "00018"
       - vol_name: "ansible-vol"
     vol_state: "absent-in-group"
+
+- name: Remove volumes from existing SG terminating also snapshots
+  dellemc.powermax.storagegroup:
+    unispherehost: "{{unispherehost}}"
+    universion: "{{universion}}"
+    verifycert: "{{verifycert}}"
+    user: "{{user}}"
+    password: "{{password}}"
+    serial_no: "{{serial_no}}"
+    sg_name: "foo"
+    state: "present"
+    volumes:
+      - vol_id: "00028"
+      - vol_id: "00018"
+      - vol_name: "ansible-vol"
+    vol_state: "absent-in-group"
+    terminate_snapshots: true
 
 - name: Move volumes to target SG
   dellemc.powermax.storagegroup:
@@ -1127,7 +1149,7 @@ class StorageGroup(object):
                         "with error %s" % (sg_name, str(e)))
             self.show_error_exit(msg=errorMsg)
 
-    def remove_volumes_from_sg(self, vol_list, sg_name):
+    def remove_volumes_from_sg(self, vol_list, sg_name, terminate_snapshots):
         """Remove volumes from storage group"""
         existing_volumes_in_sg = self.provisioning.get_volumes_from_storage_group(
             sg_name)
@@ -1196,7 +1218,8 @@ class StorageGroup(object):
                                 remote_array_1_id=remote_array_1,
                                 remote_array_1_sgs=remote_array_1_sg,
                                 remote_array_2_id=remote_array_2,
-                                remote_array_2_sgs=remote_array_2_sg)
+                                remote_array_2_sgs=remote_array_2_sg,
+                                terminate_snapshots=terminate_snapshots)
                     vol_details = self.get_volumes_details_storagegroup(
                         sg_name)
                     return True, vol_details
@@ -1217,7 +1240,8 @@ class StorageGroup(object):
                     self.provisioning.remove_volume_from_storage_group(
                         storage_group_id=sg_name, vol_id=vol,
                         remote_array_1_id=remote_array,
-                        remote_array_1_sgs=remote_array_sg)
+                        remote_array_1_sgs=remote_array_sg,
+                        terminate_snapshots=terminate_snapshots)
             vol_details = self.get_volumes_details_storagegroup(sg_name)
             return True, vol_details
 
@@ -1674,6 +1698,7 @@ class StorageGroup(object):
         new_sg_name = self.module.params['new_sg_name']
         snapshot_policies = self.module.params['snapshot_policies']
         snapshot_policy_state = self.module.params['snapshot_policy_state']
+        terminate_snapshots = self.module.params['terminate_snapshots']
         host_io_limit = self.module.params['host_io_limit']
 
         storage_group = self.get_storage_group(sg_name)
@@ -1746,7 +1771,7 @@ class StorageGroup(object):
                 'Remove existing volumes from storage group %s', sg_name)
             result['remove_vols_from_sg'], \
                 result['storage_group_volumes_details'] = self.\
-                remove_volumes_from_sg(volumes, sg_name)
+                remove_volumes_from_sg(volumes, sg_name, terminate_snapshots)
 
         if state == 'present' and storage_group and modified:
             LOG.info('Modifying storage group %s', sg_name)
@@ -1911,6 +1936,11 @@ def get_storage_group_parameters():
             choices=[
                 'present-in-group',
                 'absent-in-group']),
+        terminate_snapshots=dict(
+            required=False,
+            type='bool',
+            default='False'
+        ),
         target_sg_name=dict(type='str'),
         force=dict(type='bool'),
         host_io_limit=dict(required=False, type='dict',
